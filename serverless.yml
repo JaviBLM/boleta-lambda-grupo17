@@ -1,0 +1,33 @@
+service: boleta-lambda-grupoXX
+
+
+provider:
+  name: aws
+  runtime: nodejs20.x
+  region: us-east-1
+  environment:
+    BUCKET_NAME: boletasproyectoarqui17
+  iamRoleStatements:
+    - Effect: "Allow"
+      Action:
+        - "s3:PutObject"
+        - "s3:GetObject"
+      Resource:
+        - "arn:aws:s3:::boletasproyectoarqui17/*"
+
+functions:
+  generarBoleta:
+    handler: boleta_handler.handler
+    events:
+      - httpApi:
+          path: /boleta
+          method: post
+
+package:
+  individually: true
+  patterns:
+    - '!node_modules/aws-sdk/**' # excluye el SDK que ya viene en Lambda
+    - 'generateInvoice.js'
+    - 'uploadToS3.js'
+    - 'boleta_handler.js'
+    - 'package.json'
