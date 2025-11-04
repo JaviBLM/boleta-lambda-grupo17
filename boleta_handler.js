@@ -1,4 +1,4 @@
-//prueba actualización CI
+//prueba 2 de actualización CI
 const { generateInvoice } = require("./generateInvoice");
 const { uploadToS3 } = require("./uploadToS3");
 
