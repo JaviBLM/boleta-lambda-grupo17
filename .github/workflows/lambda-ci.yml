@@ -1,0 +1,67 @@
+name: lambda-ci
+
+on:
+  push:
+    branches: [main]
+    paths: ["**"]
+  pull_request:
+    branches: [main, develop]
+    paths: ["**"]
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    env:
+      AWS_REGION: us-east-1
+      APP_DIR: .
+      STAGE: dev
+      SERVICE_NAME: boleta-lambda-grupoXX
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: |
+            ${{ env.APP_DIR }}/package-lock.json
+
+      - name: Install deps
+        working-directory: ${{ env.APP_DIR }}
+        run: npm ci
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+      # --- PREVIEW EN PR: empaqueta y sube artefacto ---
+      - name: Serverless package (PR only)
+        if: github.event_name == 'pull_request'
+        working-directory: ${{ env.APP_DIR }}
+        run: npx serverless@3 package --stage $STAGE --package .serverless
+
+      - name: Upload artifact (PR only)
+        if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: lambda-package-${{ env.STAGE }}
+          path: ${{ env.APP_DIR }}/.serverless
+
+      # --- DEPLOY EN MAIN ---
+      - name: Serverless deploy (push only)
+        if: github.event_name == 'push'
+        working-directory: ${{ env.APP_DIR }}
+        run: npx serverless@3 deploy --stage $STAGE --conceal
+
+      - name: Show deployed info (push only)
+        if: github.event_name == 'push'
+        working-directory: ${{ env.APP_DIR }}
+        run: npx serverless@3 info --stage $STAGE --verbose
